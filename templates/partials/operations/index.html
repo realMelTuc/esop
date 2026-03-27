@@ -1,0 +1,232 @@
+<div class="header-bar">
+    <div class="header-left">
+        <div class="icon-square teal">🗂</div>
+        <h1>Operations</h1>
+    </div>
+    <div class="header-subtitle">All salvage operations · log, track, and complete site runs</div>
+</div>
+
+<div class="stats-row" id="ops-stats-row">
+    <div class="stat-box teal"><span class="stat-value" id="stat-total">—</span><span class="stat-label">TOTAL OPS</span></div>
+    <div class="stat-box"><span class="stat-value" id="stat-complete">—</span><span class="stat-label">COMPLETE</span></div>
+    <div class="stat-box amber"><span class="stat-value" id="stat-active-c">—</span><span class="stat-label">IN PROGRESS</span></div>
+    <div class="stat-box"><span class="stat-value" id="stat-planned">—</span><span class="stat-label">PLANNED</span></div>
+    <div class="stat-box teal"><span class="stat-value" id="stat-isk-total">—</span><span class="stat-label">TOTAL ISK</span></div>
+</div>
+
+<div class="filter-row">
+    <input type="text" class="search-input" id="ops-search" placeholder="Search by title, system, ref..." oninput="debouncedLoad()">
+    <select class="dark-select" id="ops-status" onchange="loadOps()">
+        <option value="">All Status</option>
+        <option value="planned">Planned</option>
+        <option value="in_progress">In Progress</option>
+        <option value="complete">Complete</option>
+        <option value="abandoned">Abandoned</option>
+    </select>
+    <select class="dark-select" id="ops-site-type" onchange="loadOps()">
+        <option value="">All Site Types</option>
+        <option value="anomaly">Anomaly</option>
+        <option value="mission_l4">Mission L4</option>
+        <option value="mission_l3">Mission L3</option>
+        <option value="mission_l2">Mission L2</option>
+        <option value="mission_l1">Mission L1</option>
+        <option value="combat_site">Combat Site</option>
+        <option value="deadspace">Deadspace</option>
+        <option value="wormhole">Wormhole</option>
+        <option value="other">Other</option>
+    </select>
+    <select class="dark-select" id="ops-region" onchange="loadOps()">
+        <option value="">All Regions</option>
+    </select>
+    <button class="btn teal" onclick="showNewOpModal()">+ New Operation</button>
+</div>
+
+<table class="data-grid" id="ops-table">
+    <thead>
+        <tr>
+            <th>REF</th><th>TITLE</th><th>SYSTEM</th><th>REGION</th>
+            <th>SITE TYPE</th><th>DIFFICULTY</th><th>STATUS</th>
+            <th>WRECKS</th><th>EST ISK</th><th>ACTUAL ISK</th>
+            <th>COMPLETED</th><th>ACTIONS</th>
+        </tr>
+    </thead>
+    <tbody id="ops-tbody">
+        <tr><td colspan="12" style="text-align:center;color:#6b7280;padding:30px">Loading...</td></tr>
+    </tbody>
+</table>
+
+<div class="pagination">
+    <span id="ops-count-label" style="font-size:12px;color:#6b7280"></span>
+    <div class="page-btns">
+        <button class="btn muted btn-sm" id="ops-prev" onclick="changePage(-1)">← Prev</button>
+        <span class="page-num" id="ops-page-label">1</span>
+        <button class="btn muted btn-sm" id="ops-next" onclick="changePage(1)">Next →</button>
+    </div>
+</div>
+
+<!-- New Op Modal -->
+<div id="new-op-modal" hidden>
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:flex;align-items:center;justify-content:center">
+        <div style="background:#111620;border:1px solid #1e2530;border-radius:4px;padding:24px;width:520px;max-height:80vh;overflow-y:auto">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;color:#e6e8eb">New Salvage Operation</h3>
+                <span style="cursor:pointer;color:#6b7280;font-size:18px" onclick="hideNewOpModal()">✕</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div style="grid-column:1/-1">
+                    <label class="form-label">Title *</label>
+                    <input type="text" class="search-input" id="nop-title" placeholder="e.g. Guristas Forsaken Hub — Venal" style="width:100%">
+                </div>
+                <div><label class="form-label">System</label><input type="text" class="search-input" id="nop-system" placeholder="e.g. 6NJ8-V" style="width:100%"></div>
+                <div><label class="form-label">Region</label><input type="text" class="search-input" id="nop-region" placeholder="e.g. Venal" style="width:100%"></div>
+                <div><label class="form-label">Site Type</label><select class="dark-select" id="nop-site-type" style="width:100%"><option value="anomaly">Anomaly</option><option value="mission_l4">Mission L4</option><option value="mission_l3">Mission L3</option><option value="mission_l2">Mission L2</option><option value="combat_site">Combat Site</option><option value="deadspace">Deadspace</option><option value="wormhole">Wormhole</option><option value="other">Other</option></select></div>
+                <div><label class="form-label">Difficulty</label><select class="dark-select" id="nop-difficulty" style="width:100%"><option value="standard" selected>Standard</option><option value="rookie">Rookie</option><option value="superior">Superior</option><option value="overseer">Overseer</option><option value="escalation">Escalation</option></select></div>
+                <div><label class="form-label">Ship Used</label><input type="text" class="search-input" id="nop-ship" placeholder="e.g. Noctis" style="width:100%"></div>
+                <div><label class="form-label">Character</label><input type="text" class="search-input" id="nop-char" placeholder="Character name" style="width:100%"></div>
+                <div><label class="form-label">Est. ISK Value</label><input type="number" class="search-input" id="nop-est-isk" placeholder="0" style="width:100%"></div>
+                <div><label class="form-label">Status</label><select class="dark-select" id="nop-status" style="width:100%"><option value="planned">Planned</option><option value="in_progress">In Progress</option><option value="complete">Complete</option></select></div>
+                <div style="grid-column:1/-1"><label class="form-label">Notes</label><textarea class="search-input" id="nop-notes" rows="3" placeholder="Optional notes..." style="width:100%;resize:vertical"></textarea></div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+                <button class="btn muted" onclick="hideNewOpModal()">Cancel</button>
+                <button class="btn teal" onclick="submitNewOp()">Create Operation</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-label { display:block; font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+</style>
+
+<script>
+var opsPage = 0;
+var opsLimit = 50;
+var opsTotal = 0;
+var _debounceTimer = null;
+
+function debouncedLoad() {
+    clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(loadOps, 350);
+}
+
+function buildOpsUrl() {
+    var q = encodeURIComponent(document.getElementById('ops-search').value || '');
+    var status = encodeURIComponent(document.getElementById('ops-status').value || '');
+    var siteType = encodeURIComponent(document.getElementById('ops-site-type').value || '');
+    var region = encodeURIComponent(document.getElementById('ops-region').value || '');
+    return `/api/operations?q=${q}&status=${status}&site_type=${siteType}&region=${region}&limit=${opsLimit}&offset=${opsPage * opsLimit}`;
+}
+
+function loadOps() {
+    fetch(buildOpsUrl()).then(r => r.json()).then(data => {
+        opsTotal = data.total || 0;
+        var tbody = document.getElementById('ops-tbody');
+        var ops = data.operations || [];
+        if (!ops.length) {
+            tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#6b7280;padding:30px">No operations found</td></tr>';
+        } else {
+            tbody.innerHTML = ops.map(o => `
+                <tr style="cursor:pointer" onclick="loadPanel('/operations/${o.id}/')">
+                    <td class="id">${o.op_ref || '—'}</td>
+                    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.title}</td>
+                    <td style="font-size:11px">${o.system_name || '—'}</td>
+                    <td style="font-size:11px">${o.region || '—'}</td>
+                    <td style="font-size:11px">${o.site_type || '—'}</td>
+                    <td>${difficultyPill(o.difficulty)}</td>
+                    <td>${statusPill(o.status)}</td>
+                    <td style="text-align:center">${o.total_wreck_count || 0}</td>
+                    <td class="isk-neu">${fmtISK(o.estimated_isk)}</td>
+                    <td class="isk-pos">${fmtISK(o.actual_isk)}</td>
+                    <td style="font-size:11px">${fmtDate(o.completed_at)}</td>
+                    <td onclick="event.stopPropagation()">
+                        <span class="btn-sm muted" onclick="quickStatusChange(${o.id}, 'complete', event)">✓</span>
+                        <span class="btn-sm muted" onclick="deleteOp(${o.id}, event)">🗑</span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        document.getElementById('ops-count-label').textContent = `${opsTotal} operations`;
+        document.getElementById('ops-page-label').textContent = `Page ${opsPage + 1}`;
+        document.getElementById('ops-prev').disabled = opsPage === 0;
+        document.getElementById('ops-next').disabled = (opsPage + 1) * opsLimit >= opsTotal;
+    }).catch(() => {
+        document.getElementById('ops-tbody').innerHTML = '<tr><td colspan="12" style="color:#ef4444;text-align:center;padding:20px">Error loading operations</td></tr>';
+    });
+}
+
+function changePage(dir) {
+    var newPage = opsPage + dir;
+    if (newPage < 0) return;
+    if (newPage * opsLimit >= opsTotal) return;
+    opsPage = newPage;
+    loadOps();
+}
+
+function quickStatusChange(opId, status, e) {
+    e.stopPropagation();
+    fetch(`/api/operations/${opId}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status: status, completed_at: status === 'complete' ? new Date().toISOString() : null})
+    }).then(() => { esopToast('Status updated', 'success'); loadOps(); })
+    .catch(() => esopToast('Failed to update', 'error'));
+}
+
+function deleteOp(opId, e) {
+    e.stopPropagation();
+    if (!confirm('Delete this operation and all its wrecks and salvage items?')) return;
+    fetch(`/api/operations/${opId}`, {method: 'DELETE'})
+        .then(() => { esopToast('Operation deleted', 'warn'); loadOps(); })
+        .catch(() => esopToast('Delete failed', 'error'));
+}
+
+function showNewOpModal() { document.getElementById('new-op-modal').hidden = false; }
+function hideNewOpModal() { document.getElementById('new-op-modal').hidden = true; }
+
+function submitNewOp() {
+    var title = document.getElementById('nop-title').value.trim();
+    if (!title) { esopToast('Title is required', 'error'); return; }
+    var payload = {
+        title: title,
+        system_name: document.getElementById('nop-system').value.trim() || null,
+        region: document.getElementById('nop-region').value.trim() || null,
+        site_type: document.getElementById('nop-site-type').value,
+        difficulty: document.getElementById('nop-difficulty').value,
+        ship_used: document.getElementById('nop-ship').value.trim() || null,
+        character_name: document.getElementById('nop-char').value.trim() || null,
+        estimated_isk: parseFloat(document.getElementById('nop-est-isk').value) || 0,
+        status: document.getElementById('nop-status').value,
+        notes: document.getElementById('nop-notes').value.trim() || null,
+    };
+    fetch('/api/operations', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(r => r.json()).then(d => {
+        if (d.error) { esopToast(d.error, 'error'); return; }
+        hideNewOpModal();
+        esopToast('Operation created', 'success');
+        loadPanel('/operations/' + d.id + '/');
+    }).catch(() => esopToast('Failed to create', 'error'));
+}
+
+fetch('/api/operations/filters/regions').then(r => r.json()).then(regions => {
+    var sel = document.getElementById('ops-region');
+    regions.forEach(r => {
+        var opt = document.createElement('option');
+        opt.value = r; opt.textContent = r;
+        sel.appendChild(opt);
+    });
+}).catch(() => {});
+
+fetch('/api/dashboard/stats').then(r => r.json()).then(d => {
+    document.getElementById('stat-total').textContent    = d.total_ops || 0;
+    document.getElementById('stat-complete').textContent = d.completed_ops || 0;
+    document.getElementById('stat-active-c').textContent = d.active_ops || 0;
+    document.getElementById('stat-planned').textContent  = d.planned_ops || 0;
+    document.getElementById('stat-isk-total').textContent = fmtISK(d.total_isk_earned);
+}).catch(() => {});
+
+loadOps();
+</script>

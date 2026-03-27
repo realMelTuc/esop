@@ -1,0 +1,281 @@
+{% set op_id_val = op_id %}
+<div id="op-detail-root">
+
+<div class="header-bar">
+    <div class="header-left">
+        <div class="icon-square teal">🛸</div>
+        <h1 id="op-title">Loading...</h1>
+    </div>
+    <div class="header-subtitle" id="op-subtitle">Operation detail</div>
+    <div class="header-pills" id="op-pills"></div>
+</div>
+
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+    <button class="btn muted" onclick="loadPanel('/operations/')">← All Operations</button>
+    <button class="btn teal" id="btn-start-op" onclick="setOpStatus('in_progress')" hidden>▶ Start</button>
+    <button class="btn teal" id="btn-complete-op" onclick="setOpStatus('complete')" hidden>✓ Mark Complete</button>
+    <button class="btn muted" id="btn-abandon-op" onclick="setOpStatus('abandoned')" hidden>✗ Abandon</button>
+    <button class="btn amber" onclick="showEditOpModal()">✎ Edit</button>
+    <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn muted" onclick="showAddWreckModal()">+ Add Wreck</button>
+        <button class="btn muted" onclick="showAddItemModal()">+ Add Salvage Item</button>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+    <div class="detail-panel">
+        <div class="panel-label">Operation Details</div>
+        <div class="kv-row"><span class="kv-key">Ref</span><span class="kv-val" id="kv-ref">—</span></div>
+        <div class="kv-row"><span class="kv-key">System</span><span class="kv-val" id="kv-system">—</span></div>
+        <div class="kv-row"><span class="kv-key">Region</span><span class="kv-val" id="kv-region">—</span></div>
+        <div class="kv-row"><span class="kv-key">Site Type</span><span class="kv-val" id="kv-site-type">—</span></div>
+        <div class="kv-row"><span class="kv-key">Difficulty</span><span class="kv-val" id="kv-difficulty">—</span></div>
+        <div class="kv-row"><span class="kv-key">Ship Used</span><span class="kv-val" id="kv-ship">—</span></div>
+        <div class="kv-row"><span class="kv-key">Character</span><span class="kv-val" id="kv-char">—</span></div>
+        <div class="kv-row"><span class="kv-key">Started</span><span class="kv-val" id="kv-started">—</span></div>
+        <div class="kv-row"><span class="kv-key">Completed</span><span class="kv-val" id="kv-completed">—</span></div>
+        <div class="kv-row"><span class="kv-key">Notes</span><span class="kv-val" id="kv-notes" style="white-space:pre-wrap">—</span></div>
+    </div>
+    <div>
+        <div class="widget-grid" style="grid-template-columns:1fr 1fr">
+            <div class="widget"><div class="widget-title">Total Wrecks</div><div class="widget-value" id="kv-wrecks">—</div></div>
+            <div class="widget amber"><div class="widget-title">Salvage Runs</div><div class="widget-value" id="kv-runs">—</div></div>
+            <div class="widget teal"><div class="widget-title">Actual ISK</div><div class="widget-value" id="kv-actual-isk">—</div></div>
+            <div class="widget"><div class="widget-title">Estimated ISK</div><div class="widget-value" id="kv-est-isk">—</div></div>
+        </div>
+        <div class="detail-panel" style="margin-top:12px">
+            <div class="panel-label">Salvage Totals</div>
+            <div class="kv-row"><span class="kv-key">Total Items Value</span><span class="kv-val isk-pos" id="kv-salvage-total">—</span></div>
+            <div class="kv-row"><span class="kv-key">Wreck Types</span><span class="kv-val" id="kv-wreck-types">—</span></div>
+        </div>
+    </div>
+</div>
+
+<div class="section-header" style="margin-bottom:8px">
+    <h3>Wrecks</h3>
+    <button class="btn-sm teal" onclick="showAddWreckModal()">+ Add</button>
+</div>
+<table class="data-grid" style="margin-bottom:20px">
+    <thead><tr>
+        <th>SHIP CLASS</th><th>SHIP NAME</th><th>FACTION</th>
+        <th>QTY</th><th>SALVAGED</th><th>UNSALVAGEABLE</th>
+        <th>EXPECTED ISK</th><th>ACTIONS</th>
+    </tr></thead>
+    <tbody id="wrecks-tbody">
+        <tr><td colspan="8" style="text-align:center;color:#6b7280;padding:20px">Loading...</td></tr>
+    </tbody>
+</table>
+
+<div class="section-header" style="margin-bottom:8px">
+    <h3>Salvage Items</h3>
+    <button class="btn-sm teal" onclick="showAddItemModal()">+ Add</button>
+</div>
+<table class="data-grid" style="margin-bottom:24px">
+    <thead><tr>
+        <th>ITEM</th><th>TIER</th><th>QTY</th>
+        <th>UNIT ISK</th><th>TOTAL ISK</th><th>SOLD</th><th>ACTIONS</th>
+    </tr></thead>
+    <tbody id="items-tbody">
+        <tr><td colspan="7" style="text-align:center;color:#6b7280;padding:20px">Loading...</td></tr>
+    </tbody>
+</table>
+
+</div>
+
+<!-- Add Wreck Modal -->
+<div id="add-wreck-modal" hidden>
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:flex;align-items:center;justify-content:center">
+        <div style="background:#111620;border:1px solid #1e2530;border-radius:4px;padding:24px;width:440px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:16px">Add Wrecks</h3>
+                <span style="cursor:pointer;color:#6b7280" onclick="document.getElementById('add-wreck-modal').hidden=true">✕</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div><label class="form-label">Ship Class *</label><select class="dark-select" id="aw-class" style="width:100%"><option value="frigate">Frigate</option><option value="destroyer">Destroyer</option><option value="cruiser">Cruiser</option><option value="battlecruiser">Battlecruiser</option><option value="battleship" selected>Battleship</option><option value="capital">Capital</option><option value="structure">Structure</option><option value="drone">Drone</option></select></div>
+                <div><label class="form-label">Quantity</label><input type="number" class="search-input" id="aw-qty" value="1" min="1" style="width:100%"></div>
+                <div><label class="form-label">Ship Name</label><input type="text" class="search-input" id="aw-name" placeholder="e.g. Guristas Battleship" style="width:100%"></div>
+                <div><label class="form-label">Faction</label><input type="text" class="search-input" id="aw-faction" placeholder="e.g. Guristas" style="width:100%"></div>
+                <div><label class="form-label">Expected ISK</label><input type="number" class="search-input" id="aw-isk" placeholder="0" style="width:100%"></div>
+                <div><label class="form-label">Notes</label><input type="text" class="search-input" id="aw-notes" placeholder="" style="width:100%"></div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+                <button class="btn muted" onclick="document.getElementById('add-wreck-modal').hidden=true">Cancel</button>
+                <button class="btn teal" onclick="submitAddWreck()">Add Wreck</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Salvage Item Modal -->
+<div id="add-item-modal" hidden>
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:flex;align-items:center;justify-content:center">
+        <div style="background:#111620;border:1px solid #1e2530;border-radius:4px;padding:24px;width:440px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:16px">Add Salvage Item</h3>
+                <span style="cursor:pointer;color:#6b7280" onclick="document.getElementById('add-item-modal').hidden=true">✕</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div style="grid-column:1/-1"><label class="form-label">Item Name *</label><input type="text" class="search-input" id="ai-name" placeholder="e.g. Armor Plates" style="width:100%"></div>
+                <div><label class="form-label">Tier</label><select class="dark-select" id="ai-tier" style="width:100%"><option value="t1">T1</option><option value="t2">T2</option></select></div>
+                <div><label class="form-label">Quantity</label><input type="number" class="search-input" id="ai-qty" value="1" min="1" style="width:100%"></div>
+                <div><label class="form-label">Unit Value (ISK)</label><input type="number" class="search-input" id="ai-unit-isk" placeholder="0" style="width:100%"></div>
+                <div><label class="form-label">Notes</label><input type="text" class="search-input" id="ai-notes" placeholder="" style="width:100%"></div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+                <button class="btn muted" onclick="document.getElementById('add-item-modal').hidden=true">Cancel</button>
+                <button class="btn teal" onclick="submitAddItem()">Add Item</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-label { display:block; font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+.section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.section-header h3 { font-family:'Barlow Condensed',sans-serif; font-size:16px; color:#e6e8eb; }
+</style>
+
+<script>
+var _opId = {{ op_id_val }};
+var _opData = null;
+
+function loadOpDetail() {
+    fetch('/api/operations/' + _opId).then(r => r.json()).then(d => {
+        if (d.error) { document.getElementById('op-title').textContent = 'Not Found'; return; }
+        _opData = d;
+        document.getElementById('op-title').textContent = d.title;
+        document.getElementById('op-subtitle').textContent = (d.system_name || '—') + ' · ' + (d.region || '—') + ' · ' + (d.site_type || '—');
+        document.getElementById('op-pills').innerHTML = statusPill(d.status) + ' ' + difficultyPill(d.difficulty);
+        document.getElementById('kv-ref').textContent        = d.op_ref || '—';
+        document.getElementById('kv-system').textContent     = d.system_name || '—';
+        document.getElementById('kv-region').textContent     = d.region || '—';
+        document.getElementById('kv-site-type').textContent  = d.site_type || '—';
+        document.getElementById('kv-difficulty').textContent = d.difficulty || '—';
+        document.getElementById('kv-ship').textContent       = d.ship_used || '—';
+        document.getElementById('kv-char').textContent       = d.character_name || '—';
+        document.getElementById('kv-started').textContent    = fmtDate(d.started_at);
+        document.getElementById('kv-completed').textContent  = fmtDate(d.completed_at);
+        document.getElementById('kv-notes').textContent      = d.notes || '—';
+        document.getElementById('kv-wrecks').textContent     = d.total_wreck_count || 0;
+        document.getElementById('kv-runs').textContent       = d.salvage_runs || 1;
+        document.getElementById('kv-actual-isk').textContent = fmtISK(d.actual_isk);
+        document.getElementById('kv-est-isk').textContent    = fmtISK(d.estimated_isk);
+        document.getElementById('kv-salvage-total').textContent = fmtISK(d.salvage_total_isk);
+        document.getElementById('kv-wreck-types').textContent   = d.wreck_types || 0;
+        document.getElementById('btn-start-op').hidden    = d.status !== 'planned';
+        document.getElementById('btn-complete-op').hidden = d.status === 'complete' || d.status === 'abandoned';
+        document.getElementById('btn-abandon-op').hidden  = d.status === 'complete' || d.status === 'abandoned';
+        renderWrecks(d.wrecks || []);
+        renderItems(d.salvage_items || []);
+    }).catch(() => { document.getElementById('op-title').textContent = 'Error loading operation'; });
+}
+
+function renderWrecks(wrecks) {
+    var tbody = document.getElementById('wrecks-tbody');
+    if (!wrecks.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6b7280;padding:20px">No wrecks logged</td></tr>'; return; }
+    tbody.innerHTML = wrecks.map(w => `
+        <tr>
+            <td><span style="text-transform:capitalize">${w.ship_class}</span></td>
+            <td style="font-size:11px">${w.ship_name || '—'}</td>
+            <td style="font-size:11px">${w.faction || '—'}</td>
+            <td style="text-align:center">${w.quantity}</td>
+            <td style="text-align:center">${w.salvaged_count || 0}</td>
+            <td style="text-align:center;color:#ef4444">${w.unsalvageable_count || 0}</td>
+            <td class="isk-pos">${fmtISK(w.expected_yield_isk)}</td>
+            <td><span class="btn-sm muted" onclick="deleteWreck(${w.id})">🗑</span></td>
+        </tr>
+    `).join('');
+}
+
+function renderItems(items) {
+    var tbody = document.getElementById('items-tbody');
+    if (!items.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6b7280;padding:20px">No salvage items recorded</td></tr>'; return; }
+    tbody.innerHTML = items.map(i => `
+        <tr>
+            <td>${i.item_name}</td>
+            <td><span style="font-size:10px;text-transform:uppercase;color:${i.tier==='t2'?'#f59e0b':'#8892a4'}">${i.tier}</span></td>
+            <td style="text-align:center">${i.quantity}</td>
+            <td class="isk-neu">${fmtISK(i.unit_value_isk)}</td>
+            <td class="isk-pos">${fmtISK(i.total_value_isk)}</td>
+            <td>${i.sold ? '<span style="color:#22c55e;font-size:11px">✓ Sold</span>' : `<button class="btn-sm muted" onclick="markSold(${i.id})">Mark Sold</button>`}</td>
+            <td><span class="btn-sm muted" onclick="deleteItem(${i.id})">🗑</span></td>
+        </tr>
+    `).join('');
+}
+
+function setOpStatus(status) {
+    var payload = {status: status};
+    if (status === 'in_progress' && !_opData.started_at) payload.started_at = new Date().toISOString();
+    if (status === 'complete') payload.completed_at = new Date().toISOString();
+    fetch('/api/operations/' + _opId, {
+        method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+    }).then(() => { esopToast('Status updated', 'success'); loadOpDetail(); })
+    .catch(() => esopToast('Failed to update', 'error'));
+}
+
+function showAddWreckModal() { document.getElementById('add-wreck-modal').hidden = false; }
+function showAddItemModal()  { document.getElementById('add-item-modal').hidden = false; }
+function showEditOpModal()   { esopToast('Edit via the Operations list for now', 'info'); }
+
+function submitAddWreck() {
+    var payload = {
+        operation_id: _opId,
+        ship_class: document.getElementById('aw-class').value,
+        quantity: parseInt(document.getElementById('aw-qty').value) || 1,
+        ship_name: document.getElementById('aw-name').value.trim() || null,
+        faction: document.getElementById('aw-faction').value.trim() || null,
+        expected_yield_isk: parseFloat(document.getElementById('aw-isk').value) || 0,
+        notes: document.getElementById('aw-notes').value.trim() || null,
+    };
+    fetch('/api/wrecks', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+    }).then(r => r.json()).then(d => {
+        if (d.error) { esopToast(d.error, 'error'); return; }
+        document.getElementById('add-wreck-modal').hidden = true;
+        esopToast('Wreck added', 'success'); loadOpDetail();
+    }).catch(() => esopToast('Failed', 'error'));
+}
+
+function submitAddItem() {
+    var payload = {
+        operation_id: _opId,
+        item_name: document.getElementById('ai-name').value.trim(),
+        tier: document.getElementById('ai-tier').value,
+        quantity: parseInt(document.getElementById('ai-qty').value) || 1,
+        unit_value_isk: parseFloat(document.getElementById('ai-unit-isk').value) || 0,
+        notes: document.getElementById('ai-notes').value.trim() || null,
+    };
+    if (!payload.item_name) { esopToast('Item name required', 'error'); return; }
+    fetch('/api/salvage', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+    }).then(r => r.json()).then(d => {
+        if (d.error) { esopToast(d.error, 'error'); return; }
+        document.getElementById('add-item-modal').hidden = true;
+        esopToast('Item added', 'success'); loadOpDetail();
+    }).catch(() => esopToast('Failed', 'error'));
+}
+
+function deleteWreck(id) {
+    if (!confirm('Delete this wreck entry?')) return;
+    fetch('/api/wrecks/' + id, {method: 'DELETE'})
+        .then(() => { esopToast('Wreck deleted', 'warn'); loadOpDetail(); })
+        .catch(() => esopToast('Delete failed', 'error'));
+}
+
+function deleteItem(id) {
+    if (!confirm('Delete this salvage item?')) return;
+    fetch('/api/salvage/' + id, {method: 'DELETE'})
+        .then(() => { esopToast('Item deleted', 'warn'); loadOpDetail(); })
+        .catch(() => esopToast('Delete failed', 'error'));
+}
+
+function markSold(id) {
+    fetch('/api/salvage/' + id, {
+        method: 'PATCH', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sold: true, sold_at: new Date().toISOString()})
+    }).then(() => { esopToast('Marked as sold', 'success'); loadOpDetail(); })
+    .catch(() => esopToast('Failed', 'error'));
+}
+
+loadOpDetail();
+</script>

@@ -1,0 +1,163 @@
+<div class="header-bar">
+    <div class="header-left">
+        <div class="icon-square teal">🛸</div>
+        <h1>Dashboard</h1>
+    </div>
+    <div class="header-subtitle">Salvage operations overview · ISK yield, wreck counts, region analytics</div>
+</div>
+
+<!-- Stats widgets -->
+<div class="widget-grid" id="dash-stats">
+    <div class="widget teal"><div class="widget-title">Active Ops</div><div class="widget-value" id="stat-active">—</div><div class="widget-sub">in progress or planned</div></div>
+    <div class="widget"><div class="widget-title">Completed</div><div class="widget-value" id="stat-completed">—</div><div class="widget-sub">all time</div></div>
+    <div class="widget amber"><div class="widget-title">ISK This Month</div><div class="widget-value" id="stat-month">—</div><div class="widget-sub">actual salvage value</div></div>
+    <div class="widget"><div class="widget-title">Total ISK Earned</div><div class="widget-value" id="stat-total">—</div><div class="widget-sub">all completed ops</div></div>
+    <div class="widget"><div class="widget-title">Avg Per Op</div><div class="widget-value" id="stat-avg">—</div><div class="widget-sub">average ISK per operation</div></div>
+    <div class="widget purple"><div class="widget-title">Wrecks Salvaged</div><div class="widget-value" id="stat-wrecks">—</div><div class="widget-sub">total across all ops</div></div>
+</div>
+
+<!-- Two-col layout -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+
+    <!-- Active / recent ops -->
+    <div>
+        <div class="section-header">
+            <h3>Recent Operations</h3>
+            <span style="font-size:11px;color:#00d4aa;cursor:pointer" onclick="loadPanel('/operations/')">View All →</span>
+        </div>
+        <table class="data-grid">
+            <thead><tr>
+                <th>Ref</th><th>Title</th><th>Status</th><th>ISK</th>
+            </tr></thead>
+            <tbody id="recent-ops-body">
+                <tr><td colspan="4" style="text-align:center;color:#6b7280;padding:20px">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Top regions -->
+    <div>
+        <div class="section-header">
+            <h3>Top Regions by ISK</h3>
+        </div>
+        <table class="data-grid">
+            <thead><tr>
+                <th>Region</th><th>Ops</th><th>Total ISK</th><th>Avg ISK</th>
+            </tr></thead>
+            <tbody id="top-regions-body">
+                <tr><td colspan="4" style="text-align:center;color:#6b7280;padding:20px">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<!-- Bottom: yield by site type + active ops table -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+    <div>
+        <div class="section-header"><h3>Yield by Site Type</h3></div>
+        <table class="data-grid">
+            <thead><tr>
+                <th>Site Type</th><th>Ops</th><th>Avg ISK</th><th>Total ISK</th>
+            </tr></thead>
+            <tbody id="site-type-body">
+                <tr><td colspan="4" style="text-align:center;color:#6b7280;padding:20px">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div>
+        <div class="section-header">
+            <h3>Active Operations</h3>
+            <span style="font-size:11px;color:#00d4aa;cursor:pointer" onclick="loadPanel('/operations/')">Manage →</span>
+        </div>
+        <div id="active-ops-list">
+            <p style="color:#6b7280;font-size:12px;padding:12px 0">Loading...</p>
+        </div>
+    </div>
+
+</div>
+
+<script>
+(function() {
+    fetch('/api/dashboard/stats').then(r => r.json()).then(d => {
+        document.getElementById('stat-active').textContent    = d.active_ops || 0;
+        document.getElementById('stat-completed').textContent = d.completed_ops || 0;
+        document.getElementById('stat-month').textContent     = fmtISK(d.isk_this_month);
+        document.getElementById('stat-total').textContent     = fmtISK(d.total_isk_earned);
+        document.getElementById('stat-avg').textContent       = fmtISK(d.avg_op_isk);
+        document.getElementById('stat-wrecks').textContent    = (d.total_wrecks_salvaged || 0).toLocaleString();
+    }).catch(() => {});
+
+    fetch('/api/dashboard/recent-ops').then(r => r.json()).then(ops => {
+        var tbody = document.getElementById('recent-ops-body');
+        if (!ops.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7280;padding:20px">No operations yet</td></tr>';
+            return;
+        }
+        tbody.innerHTML = ops.slice(0, 8).map(o => `
+            <tr style="cursor:pointer" onclick="loadPanel('/operations/${o.id}/')">
+                <td class="id">${o.op_ref || '—'}</td>
+                <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.title}</td>
+                <td>${statusPill(o.status)}</td>
+                <td class="isk-pos">${fmtISK(o.actual_isk || o.estimated_isk)}</td>
+            </tr>
+        `).join('');
+    }).catch(() => {});
+
+    fetch('/api/dashboard/top-regions').then(r => r.json()).then(rows => {
+        var tbody = document.getElementById('top-regions-body');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7280;padding:20px">No data yet</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(r => `
+            <tr>
+                <td>${r.region}</td>
+                <td>${r.op_count}</td>
+                <td class="isk-pos">${fmtISK(r.total_isk)}</td>
+                <td class="isk-neu">${fmtISK(r.avg_isk)}</td>
+            </tr>
+        `).join('');
+    }).catch(() => {});
+
+    fetch('/api/dashboard/yield-by-site-type').then(r => r.json()).then(rows => {
+        var tbody = document.getElementById('site-type-body');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7280;padding:20px">No data yet</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(r => `
+            <tr>
+                <td>${r.site_type}</td>
+                <td>${r.op_count}</td>
+                <td class="isk-pos">${fmtISK(r.avg_isk)}</td>
+                <td class="isk-pos">${fmtISK(r.total_isk)}</td>
+            </tr>
+        `).join('');
+    }).catch(() => {});
+
+    fetch('/api/dashboard/active-ops').then(r => r.json()).then(ops => {
+        var el = document.getElementById('active-ops-list');
+        if (!ops.length) {
+            el.innerHTML = '<p style="color:#22c55e;font-size:12px;padding:12px 0">✓ No active operations</p>';
+            return;
+        }
+        el.innerHTML = ops.map(o => `
+            <div class="job-card" onclick="loadPanel('/operations/${o.id}/')">
+                <div class="job-card-header">
+                    <span class="job-card-ref">${o.op_ref || '—'}</span>
+                    ${statusPill(o.status)}
+                </div>
+                <div class="job-card-title">${o.title}</div>
+                <div class="job-card-meta">
+                    <span>${o.system_name || '—'} · ${o.region || '—'}</span>
+                    <span class="isk-pos">${fmtISK(o.estimated_isk)} est.</span>
+                    <span>${o.total_wreck_count || 0} wrecks</span>
+                </div>
+            </div>
+        `).join('');
+    }).catch(() => {});
+})();
+</script>
