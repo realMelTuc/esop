@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESOP — EVE Salvage Operation Planner</title>
+    <link rel="stylesheet" href="/static/shadowwing.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0d1117; color: #e6e8eb; font-family: system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+        .landing-hero { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 60px 24px; text-align: center; }
+        .landing-logo { font-family: 'Barlow Condensed', sans-serif; font-size: 72px; font-weight: 700; color: #00d4aa; letter-spacing: 4px; line-height: 1; }
+        .landing-logo span { color: #ffffff; }
+        .landing-tagline { font-size: 14px; color: #8892a4; margin: 8px 0 32px; letter-spacing: 2px; text-transform: uppercase; }
+        .landing-desc { max-width: 580px; font-size: 14px; color: #8892a4; line-height: 1.8; margin-bottom: 40px; }
+        .landing-features { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 48px; max-width: 720px; }
+        .feature-pill { background: #111620; border: 1px solid #1e2530; border-radius: 4px; padding: 8px 16px; font-size: 12px; color: #8892a4; }
+        .feature-pill span { color: #00d4aa; margin-right: 6px; }
+        .cta-btn { display: inline-block; background: #00d4aa; color: #0d1117; font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 600; letter-spacing: 1px; padding: 14px 48px; border-radius: 4px; text-decoration: none; transition: background 0.15s; }
+        .cta-btn:hover { background: #00b899; }
+        .landing-stats { display: flex; gap: 48px; margin-top: 48px; flex-wrap: wrap; justify-content: center; }
+        .landing-stat { text-align: center; }
+        .landing-stat-val { font-family: 'Barlow Condensed', sans-serif; font-size: 32px; font-weight: 700; color: #ffffff; }
+        .landing-stat-lbl { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+        .landing-footer { padding: 16px 24px; border-top: 1px solid #1e2530; text-align: center; font-size: 11px; color: #4b5563; }
+    </style>
+</head>
+<body>
+    <div class="landing-hero">
+        <div class="landing-logo">ESOP<span>.</span></div>
+        <div class="landing-tagline">EVE Salvage Operation Planner</div>
+        <p class="landing-desc">
+            A professional salvage tracking and yield estimation tool for EVE Online capsuleers.
+            Log your operations, catalogue wrecks by ship class and faction, track salvage item drops,
+            and estimate expected ISK yield before you undock your Noctis.
+        </p>
+        <div class="landing-features">
+            <div class="feature-pill"><span>▸</span> Operation logging</div>
+            <div class="feature-pill"><span>▸</span> Wreck tracking by class</div>
+            <div class="feature-pill"><span>▸</span> Salvage item inventory</div>
+            <div class="feature-pill"><span>▸</span> ISK yield estimation</div>
+            <div class="feature-pill"><span>▸</span> Site difficulty modifiers</div>
+            <div class="feature-pill"><span>▸</span> Faction drop tables</div>
+            <div class="feature-pill"><span>▸</span> Region analytics</div>
+            <div class="feature-pill"><span>▸</span> Unsold inventory tracking</div>
+        </div>
+        <a href="/app/" class="cta-btn">LAUNCH ESOP</a>
+        <div class="landing-stats" id="landing-stats"></div>
+    </div>
+    <div class="landing-footer">
+        ESOP · esop.meltuc.com · EVE Salvage Operation Planner · MelTuc Tools
+    </div>
+    <script>
+        fetch('/api/dashboard/stats')
+            .then(r => r.json())
+            .then(d => {
+                if (!d.completed_ops) return;
+                var el = document.getElementById('landing-stats');
+                function fmtISK(v) {
+                    var n = parseFloat(v) || 0;
+                    if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+                    if (n >= 1e6) return (n/1e6).toFixed(0) + 'M';
+                    return n.toLocaleString();
+                }
+                el.innerHTML = `
+                    <div class="landing-stat"><div class="landing-stat-val">${d.completed_ops}</div><div class="landing-stat-lbl">Ops Completed</div></div>
+                    <div class="landing-stat"><div class="landing-stat-val">${fmtISK(d.total_isk_earned)}</div><div class="landing-stat-lbl">ISK Earned</div></div>
+                    <div class="landing-stat"><div class="landing-stat-val">${d.total_wrecks_salvaged}</div><div class="landing-stat-lbl">Wrecks Salvaged</div></div>
+                `;
+            }).catch(() => {});
+    </script>
+</body>
+</html>
