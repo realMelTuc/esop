@@ -1,0 +1,242 @@
+<div class="header-bar">
+    <div class="header-left">
+        <div class="icon-square teal">📊</div>
+        <h1>Yield Estimator</h1>
+    </div>
+    <div class="header-subtitle">Pre-run ISK estimation · enter site parameters and wreck composition to estimate expected salvage value</div>
+</div>
+
+<div style="display:grid;grid-template-columns:340px 1fr;gap:20px">
+
+    <div>
+        <div class="detail-panel">
+            <div class="panel-label">Site Parameters</div>
+            <div style="margin-bottom:12px">
+                <label class="form-label">Site Type</label>
+                <select class="dark-select" id="est-site-type" style="width:100%" onchange="updateMults()">
+                    <option value="anomaly">Anomaly (×1.0)</option>
+                    <option value="mission_l1">Mission L1 (×0.5)</option>
+                    <option value="mission_l2">Mission L2 (×0.7)</option>
+                    <option value="mission_l3">Mission L3 (×1.1)</option>
+                    <option value="mission_l4">Mission L4 (×1.4)</option>
+                    <option value="combat_site">Combat Site (×1.2)</option>
+                    <option value="deadspace">Deadspace (×1.5)</option>
+                    <option value="wormhole">Wormhole (×1.8)</option>
+                    <option value="other">Other (×1.0)</option>
+                </select>
+            </div>
+            <div style="margin-bottom:12px">
+                <label class="form-label">Difficulty</label>
+                <select class="dark-select" id="est-difficulty" style="width:100%" onchange="updateMults()">
+                    <option value="standard" selected>Standard (×1.0)</option>
+                    <option value="rookie">Rookie (×0.6)</option>
+                    <option value="superior">Superior (×1.3)</option>
+                    <option value="overseer">Overseer (×1.8)</option>
+                    <option value="escalation">Escalation (×2.2)</option>
+                </select>
+            </div>
+            <div style="margin-bottom:12px">
+                <label class="form-label">Faction</label>
+                <select class="dark-select" id="est-faction" style="width:100%">
+                    <option value="generic">Generic (default)</option>
+                </select>
+            </div>
+            <div style="background:#0d1117;border-radius:4px;padding:10px;font-size:12px;color:#8892a4">
+                Combined multiplier: <span id="est-combined-mult" style="color:#00d4aa;font-weight:600">1.00×</span>
+            </div>
+        </div>
+
+        <div class="detail-panel" style="margin-top:0">
+            <div class="panel-label" style="display:flex;justify-content:space-between;align-items:center">
+                Wreck Composition
+                <button class="btn-sm teal" onclick="addWreckRow()">+ Add</button>
+            </div>
+            <div id="wreck-rows"></div>
+            <div style="margin-top:12px">
+                <button class="btn teal" style="width:100%" onclick="runEstimate()">Calculate Estimate</button>
+            </div>
+        </div>
+
+        <div class="detail-panel" style="margin-top:0">
+            <div class="panel-label">Quick Presets</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+                <button class="btn muted" onclick="loadPreset('guristas_hub')">Guristas Forsaken Hub</button>
+                <button class="btn muted" onclick="loadPreset('angel_sanctum')">Angel Sanctum</button>
+                <button class="btn muted" onclick="loadPreset('l4_mission')">Standard L4 Mission</button>
+                <button class="btn muted" onclick="loadPreset('combat_site')">Combat Anomaly</button>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <div id="est-placeholder" class="detail-panel" style="text-align:center;padding:40px">
+            <div style="font-size:32px;margin-bottom:12px">📊</div>
+            <div style="color:#6b7280;font-size:13px">Configure site parameters and wreck composition,<br>then click <strong style="color:#00d4aa">Calculate Estimate</strong>.</div>
+        </div>
+
+        <div id="est-results" hidden>
+            <div class="widget-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+                <div class="widget"><div class="widget-title">Min Estimate</div><div class="widget-value" id="res-min">—</div><div class="widget-sub">pessimistic</div></div>
+                <div class="widget teal"><div class="widget-title">Avg Estimate</div><div class="widget-value" id="res-avg">—</div><div class="widget-sub">expected value</div></div>
+                <div class="widget amber"><div class="widget-title">Max Estimate</div><div class="widget-value" id="res-max">—</div><div class="widget-sub">optimistic</div></div>
+            </div>
+            <div class="section-header" style="margin-bottom:8px"><h3>Breakdown by Ship Class</h3></div>
+            <table class="data-grid" style="margin-bottom:20px">
+                <thead><tr><th>SHIP CLASS</th><th>QTY</th><th>MIN ISK</th><th>AVG ISK</th><th>MAX ISK</th></tr></thead>
+                <tbody id="res-breakdown-tbody"></tbody>
+            </table>
+            <div class="section-header" style="margin-bottom:8px">
+                <h3>Expected Item Drops</h3>
+                <span style="font-size:11px;color:#6b7280">avg quantity × drop probability</span>
+            </div>
+            <table class="data-grid">
+                <thead><tr><th>ITEM</th><th>TIER</th><th>EST QTY</th><th>EST ISK VALUE</th></tr></thead>
+                <tbody id="res-items-tbody"></tbody>
+            </table>
+            <div style="margin-top:16px;display:flex;gap:8px;align-items:center">
+                <select class="dark-select" id="est-save-op" style="flex:1">
+                    <option value="">— Select operation to use estimate —</option>
+                </select>
+                <button class="btn amber" onclick="saveEstimateToOp()">Apply to Operation</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.form-label { display:block; font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+.wreck-row { display:grid; grid-template-columns:1fr 80px 24px; gap:6px; margin-bottom:6px; align-items:center; }
+</style>
+
+<script>
+var SITE_MULTS = {anomaly:1.0,mission_l1:0.5,mission_l2:0.7,mission_l3:1.1,mission_l4:1.4,combat_site:1.2,deadspace:1.5,wormhole:1.8,other:1.0};
+var DIFF_MULTS = {rookie:0.6,standard:1.0,superior:1.3,overseer:1.8,escalation:2.2};
+var SHIP_CLASSES = ['frigate','destroyer','cruiser','battlecruiser','battleship','capital','structure','drone'];
+
+function updateMults() {
+    var sm = SITE_MULTS[document.getElementById('est-site-type').value] || 1.0;
+    var dm = DIFF_MULTS[document.getElementById('est-difficulty').value] || 1.0;
+    document.getElementById('est-combined-mult').textContent = (sm * dm).toFixed(2) + '×';
+}
+
+function addWreckRow(cls, qty) {
+    var container = document.getElementById('wreck-rows');
+    var row = document.createElement('div');
+    row.className = 'wreck-row';
+    var opts = SHIP_CLASSES.map(c =>
+        `<option value="${c}" ${c === (cls || 'battleship') ? 'selected' : ''}>${c.charAt(0).toUpperCase() + c.slice(1)}</option>`
+    ).join('');
+    row.innerHTML = `
+        <select class="dark-select" style="width:100%">${opts}</select>
+        <input type="number" class="search-input" value="${qty || 1}" min="1" placeholder="qty" style="width:100%;text-align:center">
+        <span style="cursor:pointer;color:#6b7280;font-size:16px;line-height:1" onclick="this.parentElement.remove()">✕</span>
+    `;
+    container.appendChild(row);
+}
+
+function getWrecks() {
+    var rows = document.querySelectorAll('#wreck-rows .wreck-row');
+    var result = [];
+    rows.forEach(row => {
+        var cls = row.querySelector('select').value;
+        var qty = parseInt(row.querySelector('input').value) || 0;
+        if (qty > 0) result.push({ship_class: cls, quantity: qty});
+    });
+    return result;
+}
+
+function runEstimate() {
+    var wrecks = getWrecks();
+    if (!wrecks.length) { esopToast('Add at least one wreck class', 'error'); return; }
+    var payload = {
+        site_type:  document.getElementById('est-site-type').value,
+        difficulty: document.getElementById('est-difficulty').value,
+        faction:    document.getElementById('est-faction').value,
+        wrecks:     wrecks,
+    };
+    fetch('/api/estimator/calculate', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+    }).then(r => r.json()).then(d => {
+        if (d.error) { esopToast(d.error, 'error'); return; }
+        document.getElementById('est-placeholder').hidden = true;
+        document.getElementById('est-results').hidden = false;
+        document.getElementById('res-min').textContent = fmtISK(d.estimate.min_isk);
+        document.getElementById('res-avg').textContent = fmtISK(d.estimate.avg_isk);
+        document.getElementById('res-max').textContent = fmtISK(d.estimate.max_isk);
+        document.getElementById('res-breakdown-tbody').innerHTML = d.breakdown.map(b => `
+            <tr>
+                <td style="text-transform:capitalize">${b.ship_class}</td>
+                <td style="text-align:center">${b.quantity}</td>
+                <td class="isk-neu">${fmtISK(b.min_isk)}</td>
+                <td class="isk-pos">${fmtISK(b.avg_isk)}</td>
+                <td class="isk-amber">${fmtISK(b.max_isk)}</td>
+            </tr>
+        `).join('');
+        document.getElementById('res-items-tbody').innerHTML = d.item_totals.map(i => `
+            <tr>
+                <td>${i.item_name}</td>
+                <td><span style="font-size:10px;text-transform:uppercase;color:${i.tier==='t2'?'#f59e0b':'#8892a4'}">${i.tier || 't1'}</span></td>
+                <td style="text-align:center">${(parseFloat(i.avg_qty) || 0).toFixed(1)}</td>
+                <td class="isk-pos">${fmtISK(i.avg_isk)}</td>
+            </tr>
+        `).join('');
+    }).catch(() => esopToast('Estimation failed', 'error'));
+}
+
+function loadPreset(preset) {
+    var presets = {
+        guristas_hub:  {site_type:'anomaly',    difficulty:'superior', faction:'generic', wrecks:[{ship_class:'battleship',quantity:8},{ship_class:'battlecruiser',quantity:4},{ship_class:'cruiser',quantity:6},{ship_class:'frigate',quantity:10}]},
+        angel_sanctum: {site_type:'anomaly',    difficulty:'superior', faction:'generic', wrecks:[{ship_class:'battleship',quantity:6},{ship_class:'battlecruiser',quantity:5},{ship_class:'cruiser',quantity:8}]},
+        l4_mission:    {site_type:'mission_l4', difficulty:'standard', faction:'generic', wrecks:[{ship_class:'battleship',quantity:12},{ship_class:'battlecruiser',quantity:6},{ship_class:'cruiser',quantity:10},{ship_class:'frigate',quantity:15}]},
+        combat_site:   {site_type:'combat_site',difficulty:'standard', faction:'generic', wrecks:[{ship_class:'battleship',quantity:5},{ship_class:'cruiser',quantity:8},{ship_class:'destroyer',quantity:5},{ship_class:'frigate',quantity:12}]},
+    };
+    var p = presets[preset];
+    if (!p) return;
+    document.getElementById('est-site-type').value  = p.site_type;
+    document.getElementById('est-difficulty').value = p.difficulty;
+    document.getElementById('est-faction').value    = p.faction;
+    document.getElementById('wreck-rows').innerHTML = '';
+    p.wrecks.forEach(w => addWreckRow(w.ship_class, w.quantity));
+    updateMults();
+    runEstimate();
+}
+
+function saveEstimateToOp() {
+    var opId = document.getElementById('est-save-op').value;
+    if (!opId) { esopToast('Select an operation first', 'error'); return; }
+    var avgEl = document.getElementById('res-avg').textContent;
+    var avg = parseFloat(avgEl.replace(/[^0-9.]/g, ''));
+    if (avgEl.includes('M')) avg *= 1e6;
+    else if (avgEl.includes('B')) avg *= 1e9;
+    fetch('/api/operations/' + opId, {
+        method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estimated_isk: avg})
+    }).then(() => esopToast('Estimate applied to operation', 'success'))
+    .catch(() => esopToast('Failed to apply', 'error'));
+}
+
+fetch('/api/estimator/factions').then(r => r.json()).then(factions => {
+    var sel = document.getElementById('est-faction');
+    factions.forEach(f => {
+        if (f === 'generic') return;
+        var opt = document.createElement('option');
+        opt.value = f; opt.textContent = f;
+        sel.appendChild(opt);
+    });
+}).catch(() => {});
+
+fetch('/api/operations?limit=50').then(r => r.json()).then(d => {
+    var sel = document.getElementById('est-save-op');
+    (d.operations || []).filter(o => o.status !== 'complete').forEach(o => {
+        var opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = (o.op_ref || o.id) + ' — ' + o.title;
+        sel.appendChild(opt);
+    });
+}).catch(() => {});
+
+addWreckRow('battleship', 6);
+addWreckRow('cruiser', 8);
+addWreckRow('frigate', 10);
+updateMults();
+</script>

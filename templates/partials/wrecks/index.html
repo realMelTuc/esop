@@ -1,0 +1,139 @@
+<div class="header-bar">
+    <div class="header-left">
+        <div class="icon-square amber">💀</div>
+        <h1>Wrecks</h1>
+    </div>
+    <div class="header-subtitle">All wreck entries across operations · filter by class, faction, and region</div>
+</div>
+
+<div class="stats-row" id="wreck-stats-row">
+    <div class="stat-box teal"><span class="stat-value" id="ws-total">—</span><span class="stat-label">TOTAL ENTRIES</span></div>
+    <div class="stat-box"><span class="stat-value" id="ws-bs">—</span><span class="stat-label">BATTLESHIPS</span></div>
+    <div class="stat-box amber"><span class="stat-value" id="ws-bc">—</span><span class="stat-label">BATTLECRUISERS</span></div>
+    <div class="stat-box"><span class="stat-value" id="ws-cr">—</span><span class="stat-label">CRUISERS</span></div>
+    <div class="stat-box"><span class="stat-value" id="ws-fr">—</span><span class="stat-label">FRIGATES</span></div>
+    <div class="stat-box teal"><span class="stat-value" id="ws-isk">—</span><span class="stat-label">EXPECTED ISK</span></div>
+</div>
+
+<div class="filter-row">
+    <select class="dark-select" id="wr-class" onchange="loadWrecks()">
+        <option value="">All Classes</option>
+        <option value="frigate">Frigate</option>
+        <option value="destroyer">Destroyer</option>
+        <option value="cruiser">Cruiser</option>
+        <option value="battlecruiser">Battlecruiser</option>
+        <option value="battleship">Battleship</option>
+        <option value="capital">Capital</option>
+        <option value="structure">Structure</option>
+        <option value="drone">Drone</option>
+    </select>
+    <input type="text" class="search-input" id="wr-faction" placeholder="Filter faction..." oninput="debouncedWrecksLoad()">
+    <input type="text" class="search-input" id="wr-op-id" placeholder="Operation ID..." oninput="debouncedWrecksLoad()" style="max-width:160px">
+</div>
+
+<div class="section-header" style="margin-bottom:8px">
+    <h3>Summary by Ship Class</h3>
+</div>
+<table class="data-grid" style="margin-bottom:24px" id="summary-table">
+    <thead><tr>
+        <th>SHIP CLASS</th><th>ENTRIES</th><th>TOTAL QTY</th><th>SALVAGED</th>
+        <th>SUCCESS RATE</th><th>EXPECTED ISK</th>
+    </tr></thead>
+    <tbody id="summary-tbody">
+        <tr><td colspan="6" style="text-align:center;color:#6b7280;padding:20px">Loading...</td></tr>
+    </tbody>
+</table>
+
+<div class="section-header" style="margin-bottom:8px">
+    <h3>Wreck Log</h3>
+</div>
+<table class="data-grid">
+    <thead><tr>
+        <th>OPERATION</th><th>SYSTEM</th><th>CLASS</th><th>SHIP NAME</th>
+        <th>FACTION</th><th>QTY</th><th>SALVAGED</th><th>EXPECTED ISK</th><th>DATE</th>
+    </tr></thead>
+    <tbody id="wrecks-tbody">
+        <tr><td colspan="9" style="text-align:center;color:#6b7280;padding:20px">Loading...</td></tr>
+    </tbody>
+</table>
+
+<script>
+var _debounceWrecks = null;
+function debouncedWrecksLoad() {
+    clearTimeout(_debounceWrecks);
+    _debounceWrecks = setTimeout(loadWrecks, 350);
+}
+
+function loadWrecks() {
+    var cls     = document.getElementById('wr-class').value;
+    var faction = document.getElementById('wr-faction').value.trim();
+    var opId    = document.getElementById('wr-op-id').value.trim();
+    var url = '/api/wrecks?limit=200';
+    if (cls)     url += '&ship_class=' + encodeURIComponent(cls);
+    if (faction) url += '&faction='    + encodeURIComponent(faction);
+    if (opId)    url += '&operation_id=' + encodeURIComponent(opId);
+
+    fetch(url).then(r => r.json()).then(rows => {
+        var tbody = document.getElementById('wrecks-tbody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6b7280;padding:20px">No wrecks found</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(w => `
+            <tr style="cursor:pointer" onclick="loadPanel('/operations/${w.operation_id}/')">
+                <td class="id">${w.op_ref || w.operation_id}</td>
+                <td style="font-size:11px">${w.system_name || '—'}</td>
+                <td style="text-transform:capitalize">${w.ship_class}</td>
+                <td style="font-size:11px">${w.ship_name || '—'}</td>
+                <td style="font-size:11px">${w.faction || '—'}</td>
+                <td style="text-align:center">${w.quantity}</td>
+                <td style="text-align:center">${w.salvaged_count || 0}</td>
+                <td class="isk-pos">${fmtISK(w.expected_yield_isk)}</td>
+                <td style="font-size:11px">${fmtDate(w.created_at)}</td>
+            </tr>
+        `).join('');
+    }).catch(() => {
+        document.getElementById('wrecks-tbody').innerHTML = '<tr><td colspan="9" style="color:#ef4444;text-align:center;padding:20px">Error loading</td></tr>';
+    });
+}
+
+function loadSummary() {
+    fetch('/api/wrecks/summary').then(r => r.json()).then(rows => {
+        var tbody = document.getElementById('summary-tbody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6b7280;padding:20px">No data yet</td></tr>';
+            ['ws-total','ws-bs','ws-bc','ws-cr','ws-fr','ws-isk'].forEach(id => {
+                var el = document.getElementById(id);
+                if (el) el.textContent = '0';
+            });
+            return;
+        }
+        tbody.innerHTML = rows.map(r => {
+            var rate = r.total_quantity > 0 ? Math.round((r.total_salvaged / r.total_quantity) * 100) : 0;
+            return `
+                <tr>
+                    <td style="text-transform:capitalize">${r.ship_class}</td>
+                    <td>${r.wreck_entries}</td>
+                    <td>${r.total_quantity}</td>
+                    <td>${r.total_salvaged || 0}</td>
+                    <td><span class="${rate >= 80 ? 'isk-pos' : rate >= 50 ? 'isk-neu' : 'isk-neg'}">${rate}%</span></td>
+                    <td class="isk-pos">${fmtISK(r.total_expected_isk)}</td>
+                </tr>
+            `;
+        }).join('');
+        var total = rows.reduce((s, r) => s + (r.total_quantity || 0), 0);
+        var totalIsk = rows.reduce((s, r) => s + parseFloat(r.total_expected_isk || 0), 0);
+        document.getElementById('ws-total').textContent = total;
+        document.getElementById('ws-isk').textContent   = fmtISK(totalIsk);
+        var byClass = {};
+        rows.forEach(r => byClass[r.ship_class] = r.total_quantity || 0);
+        document.getElementById('ws-bs').textContent = byClass['battleship'] || 0;
+        document.getElementById('ws-bc').textContent = byClass['battlecruiser'] || 0;
+        document.getElementById('ws-cr').textContent = byClass['cruiser'] || 0;
+        document.getElementById('ws-fr').textContent = byClass['frigate'] || 0;
+    }).catch(() => {});
+}
+
+loadSummary();
+loadWrecks();
+</script>

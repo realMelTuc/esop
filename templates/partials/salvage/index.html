@@ -1,0 +1,178 @@
+<div class="header-bar">
+    <div class="header-left">
+        <div class="icon-square amber">💎</div>
+        <h1>Salvage Items</h1>
+    </div>
+    <div class="header-subtitle">All collected salvage · item totals, unsold inventory, top earners</div>
+</div>
+
+<div class="stats-row">
+    <div class="stat-box teal"><span class="stat-value" id="sv-total-items">—</span><span class="stat-label">TOTAL ITEMS</span></div>
+    <div class="stat-box amber"><span class="stat-value" id="sv-unsold-isk">—</span><span class="stat-label">UNSOLD VALUE</span></div>
+    <div class="stat-box"><span class="stat-value" id="sv-top-item">—</span><span class="stat-label">TOP ITEM</span></div>
+</div>
+
+<div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid #1e2530;padding-bottom:0">
+    <button class="sv-tab active" data-tab="all"         onclick="switchTab('all')">All Items</button>
+    <button class="sv-tab"        data-tab="unsold"      onclick="switchTab('unsold')">Unsold Inventory</button>
+    <button class="sv-tab"        data-tab="top-earners" onclick="switchTab('top-earners')">Top Earners</button>
+</div>
+
+<div id="tab-all">
+    <div class="filter-row">
+        <input type="text" class="search-input" id="sv-item-filter" placeholder="Filter item name..." oninput="debouncedSvLoad()">
+        <select class="dark-select" id="sv-tier" onchange="loadAllItems()">
+            <option value="">All Tiers</option>
+            <option value="t1">T1</option>
+            <option value="t2">T2</option>
+        </select>
+        <select class="dark-select" id="sv-sold-filter" onchange="loadAllItems()">
+            <option value="">All</option>
+            <option value="false">Unsold Only</option>
+            <option value="true">Sold Only</option>
+        </select>
+        <input type="text" class="search-input" id="sv-op-id" placeholder="Operation ID..." oninput="debouncedSvLoad()" style="max-width:160px">
+    </div>
+    <table class="data-grid">
+        <thead><tr>
+            <th>ITEM</th><th>TIER</th><th>OPERATION</th><th>SYSTEM</th>
+            <th>QTY</th><th>UNIT ISK</th><th>TOTAL ISK</th><th>SOLD</th><th>DATE</th>
+        </tr></thead>
+        <tbody id="sv-all-tbody">
+            <tr><td colspan="9" style="text-align:center;color:#6b7280;padding:20px">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div id="tab-unsold" hidden>
+    <table class="data-grid">
+        <thead><tr>
+            <th>ITEM</th><th>TIER</th><th>TOTAL QTY</th><th>AVG UNIT ISK</th><th>TOTAL VALUE</th>
+        </tr></thead>
+        <tbody id="sv-unsold-tbody">
+            <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:20px">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div id="tab-top-earners" hidden>
+    <table class="data-grid">
+        <thead><tr>
+            <th>ITEM</th><th>TIER</th><th>OPS</th><th>TOTAL QTY</th>
+            <th>AVG UNIT ISK</th><th>TOTAL ISK</th>
+        </tr></thead>
+        <tbody id="sv-top-tbody">
+            <tr><td colspan="6" style="text-align:center;color:#6b7280;padding:20px">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<style>
+.sv-tab { padding:8px 16px; background:transparent; border:none; border-bottom:2px solid transparent; color:#8892a4; font-size:12px; cursor:pointer; margin-bottom:-1px; transition:all 0.15s; }
+.sv-tab:hover { color:#e6e8eb; }
+.sv-tab.active { color:#00d4aa; border-bottom-color:#00d4aa; }
+</style>
+
+<script>
+var _svDebounce = null;
+function debouncedSvLoad() {
+    clearTimeout(_svDebounce);
+    _svDebounce = setTimeout(loadAllItems, 350);
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.sv-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('[id^="tab-"]').forEach(d => d.hidden = true);
+    document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+    document.getElementById('tab-' + tab).hidden = false;
+    if (tab === 'unsold')      loadUnsold();
+    if (tab === 'top-earners') loadTopEarners();
+    if (tab === 'all')         loadAllItems();
+}
+
+function loadAllItems() {
+    var name  = document.getElementById('sv-item-filter').value.trim();
+    var tier  = document.getElementById('sv-tier').value;
+    var sold  = document.getElementById('sv-sold-filter').value;
+    var opId  = document.getElementById('sv-op-id').value.trim();
+    var url = '/api/salvage?limit=200';
+    if (name) url += '&item_name=' + encodeURIComponent(name);
+    if (tier) url += '&tier='      + encodeURIComponent(tier);
+    if (sold) url += '&sold='      + encodeURIComponent(sold);
+    if (opId) url += '&operation_id=' + encodeURIComponent(opId);
+    fetch(url).then(r => r.json()).then(rows => {
+        var tbody = document.getElementById('sv-all-tbody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6b7280;padding:20px">No salvage items found</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(i => `
+            <tr style="cursor:pointer" onclick="loadPanel('/operations/${i.operation_id}/')">
+                <td>${i.item_name}</td>
+                <td><span style="font-size:10px;text-transform:uppercase;color:${i.tier==='t2'?'#f59e0b':'#8892a4'}">${i.tier}</span></td>
+                <td class="id">${i.op_ref || i.operation_id}</td>
+                <td style="font-size:11px">${i.system_name || '—'}</td>
+                <td style="text-align:center">${i.quantity}</td>
+                <td class="isk-neu">${fmtISK(i.unit_value_isk)}</td>
+                <td class="isk-pos">${fmtISK(i.total_value_isk)}</td>
+                <td>${i.sold ? '<span style="color:#22c55e;font-size:10px">✓ Sold</span>' : '<span style="color:#6b7280;font-size:10px">—</span>'}</td>
+                <td style="font-size:11px">${fmtDate(i.created_at)}</td>
+            </tr>
+        `).join('');
+    }).catch(() => {
+        document.getElementById('sv-all-tbody').innerHTML = '<tr><td colspan="9" style="color:#ef4444;text-align:center;padding:20px">Error loading</td></tr>';
+    });
+}
+
+function loadUnsold() {
+    fetch('/api/salvage/unsold').then(r => r.json()).then(rows => {
+        var tbody = document.getElementById('sv-unsold-tbody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#22c55e;padding:20px">✓ All salvage sold</td></tr>';
+            document.getElementById('sv-unsold-isk').textContent = '0';
+            return;
+        }
+        var totalIsk = rows.reduce((s, r) => s + parseFloat(r.total_isk || 0), 0);
+        document.getElementById('sv-unsold-isk').textContent = fmtISK(totalIsk);
+        tbody.innerHTML = rows.map(r => `
+            <tr>
+                <td>${r.item_name}</td>
+                <td><span style="font-size:10px;text-transform:uppercase;color:${r.tier==='t2'?'#f59e0b':'#8892a4'}">${r.tier}</span></td>
+                <td style="text-align:center">${r.total_qty}</td>
+                <td class="isk-neu">${fmtISK(r.avg_unit_isk)}</td>
+                <td class="isk-pos">${fmtISK(r.total_isk)}</td>
+            </tr>
+        `).join('');
+    }).catch(() => {});
+}
+
+function loadTopEarners() {
+    fetch('/api/salvage/summary').then(r => r.json()).then(rows => {
+        var tbody = document.getElementById('sv-top-tbody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6b7280;padding:20px">No data yet</td></tr>';
+            return;
+        }
+        if (rows[0]) document.getElementById('sv-top-item').textContent = rows[0].item_name.split(' ').slice(0,2).join(' ');
+        var totalItems = rows.reduce((s, r) => s + (r.total_qty || 0), 0);
+        document.getElementById('sv-total-items').textContent = totalItems.toLocaleString();
+        tbody.innerHTML = rows.map(r => `
+            <tr>
+                <td>${r.item_name}</td>
+                <td><span style="font-size:10px;text-transform:uppercase;color:${r.tier==='t2'?'#f59e0b':'#8892a4'}">${r.tier}</span></td>
+                <td style="text-align:center">${r.op_count}</td>
+                <td style="text-align:center">${r.total_qty}</td>
+                <td class="isk-neu">${fmtISK(r.avg_unit_isk)}</td>
+                <td class="isk-pos">${fmtISK(r.total_isk)}</td>
+            </tr>
+        `).join('');
+    }).catch(() => {});
+}
+
+loadAllItems();
+loadTopEarners();
+fetch('/api/salvage/unsold').then(r => r.json()).then(rows => {
+    var unsoldIsk = rows.reduce((s, r) => s + parseFloat(r.total_isk || 0), 0);
+    document.getElementById('sv-unsold-isk').textContent = fmtISK(unsoldIsk);
+}).catch(() => {});
+</script>
